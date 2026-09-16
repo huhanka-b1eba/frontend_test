@@ -95,9 +95,16 @@ const normalizeCompactRoute = (compactRoute: CompactSharedRoute): SharedRoute | 
     return null;
   }
 
+  const transportMode = isTransportMode(compactRoute.m) ? compactRoute.m : 'walking';
+  const segmentModes =
+    Array.isArray(compactRoute.s) && compactRoute.s.length === compactRoute.p.length
+      ? compactRoute.s.map((mode) => (isTransportMode(mode) ? mode : transportMode))
+      : compactRoute.p.map(() => transportMode);
+
   return {
     version: 1,
-    transportMode: isTransportMode(compactRoute.m) ? compactRoute.m : 'walking',
+    transportMode,
+    segmentModes,
     places: places.filter((place) => place !== null),
   };
 };

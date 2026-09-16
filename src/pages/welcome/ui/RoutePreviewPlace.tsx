@@ -1,7 +1,7 @@
-import type { RouteLeg } from '@shared/api/osrm';
+import type { ReactNode } from 'react';
+
 import { Button } from '@shared/ui/button';
 
-import { formatDistanceMeters, formatDurationMinutes } from '../model/routeDuration';
 import {
   MAX_VISIT_DURATION_MINUTES,
   MIN_VISIT_DURATION_MINUTES,
@@ -11,8 +11,7 @@ import {
 
 type RoutePreviewPlaceProps = {
   place: RoutePlace;
-  leg?: RouteLeg;
-  routeDirty: boolean;
+  segmentControl?: ReactNode;
   categoryTitle: string;
   onVisitDurationChange: (placeId: string, durationMinutes: number) => void;
   onRemovePlace?: (placeId: string) => void;
@@ -20,8 +19,7 @@ type RoutePreviewPlaceProps = {
 
 export const RoutePreviewPlace = ({
   place,
-  leg,
-  routeDirty,
+  segmentControl,
   categoryTitle,
   onVisitDurationChange,
   onRemovePlace,
@@ -31,6 +29,8 @@ export const RoutePreviewPlace = ({
 
   return (
     <li className="bg-background/55 rounded-xl border p-3">
+      {segmentControl && <div className="-mt-1 mb-2">{segmentControl}</div>}
+
       <div className="flex gap-3">
         <span className="bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-lg text-xs font-semibold">
           {place.order}
@@ -57,15 +57,6 @@ export const RoutePreviewPlace = ({
             )}
           </div>
           <p className="text-muted-foreground text-xs">{categoryTitle}</p>
-
-          {routeDirty ? (
-            <p className="text-muted-foreground mt-1.5 text-xs">До точки: пересчёт требуется</p>
-          ) : leg ? (
-            <p className="text-muted-foreground mt-1.5 text-xs">
-              До точки: {formatDistanceMeters(leg.distance)} ·{' '}
-              {formatDurationMinutes(Math.round(leg.duration / 60))}
-            </p>
-          ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">
             <span className="text-muted-foreground text-xs">На месте</span>

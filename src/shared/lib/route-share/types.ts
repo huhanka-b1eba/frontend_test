@@ -15,12 +15,14 @@ export type SharedRoutePlace = {
 export type SharedRoute = {
   version: 1;
   transportMode: TransportMode;
+  segmentModes: TransportMode[];
   places: SharedRoutePlace[];
 };
 
 export type CompactSharedRoute = {
   v: 1;
   m?: TransportMode;
+  s?: TransportMode[];
   p: Array<{
     i: string;
     oi: number;

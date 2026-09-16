@@ -3,7 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getRoute, type RoutePoint, type RouteResult } from '@shared/api/osrm';
 import type { PlaceCategory } from '@shared/api/overpass';
 import { decodeSharedRoute, type SharedRoute } from '@shared/lib/route-share';
-import { isRoutableTransportMode, TRANSPORT_MODE_LABELS } from '@shared/lib/transport';
+import {
+  isRoutableTransportMode,
+  TRANSPORT_MODE_LABELS,
+  type TransportMode,
+} from '@shared/lib/transport';
 import { Button } from '@shared/ui/button';
 import { Map } from '@shared/ui/map';
 import type { RouteMapPlace } from '@shared/ui/map/placesGeoJson';
@@ -71,6 +75,10 @@ const toRouteMapPlaces = (route: SharedRoute): MobileRoutePlace[] => {
   }));
 };
 
+const getSegmentMode = (route: SharedRoute, index: number): TransportMode => {
+  return route.segmentModes[index] ?? route.transportMode;
+};
+
 export const MobileRoutePage = () => {
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const sharedRoute = useMemo(() => decodeSharedRoute(searchParams.get('data')), [searchParams]);
@@ -89,21 +97,59 @@ export const MobileRoutePage = () => {
         return;
       }
 
-      if (!isRoutableTransportMode(sharedRoute.transportMode)) {
-        setStatus('Время маршрута будет рассчитано в Яндекс Картах.');
+      const segmentRoutes = await Promise.all(
+        sharedRoute.places.map((place, index) => {
+          const mode = getSegmentMode(sharedRoute, index);
+
+          if (!isRoutableTransportMode(mode)) {
+            return Promise.resolve(null);
+          }
+
+          const from =
+            index === 0
+              ? location
+              : {
+                  latitude: sharedRoute.places[index - 1].latitude,
+                  longitude: sharedRoute.places[index - 1].longitude,
+                };
+
+          return getRoute(
+            [
+              from,
+              {
+                latitude: place.latitude,
+                longitude: place.longitude,
+              },
+            ],
+            mode,
+          );
+        }),
+      );
+      const readyRoutes = segmentRoutes.filter(
+        (segmentRoute): segmentRoute is RouteResult => segmentRoute !== null,
+      );
+
+      if (readyRoutes.length === 0) {
+        setStatus('Маршрут будет открыт в Яндекс Картах.');
         return;
       }
 
-      const nextRoute = await getRoute(
-        [
-          location,
-          ...sharedRoute.places.map((place) => ({
-            latitude: place.latitude,
-            longitude: place.longitude,
-          })),
-        ],
-        sharedRoute.transportMode,
+      const coordinates = readyRoutes.flatMap((segmentRoute, index) =>
+        index === 0
+          ? segmentRoute.geometry.coordinates
+          : segmentRoute.geometry.coordinates.slice(1),
       );
+      const nextRoute: RouteResult = {
+        geometry: {
+          type: 'LineString',
+          coordinates,
+        },
+        distance: readyRoutes.reduce((sum, segmentRoute) => sum + segmentRoute.distance, 0),
+        duration: readyRoutes.reduce((sum, segmentRoute) => sum + segmentRoute.duration, 0),
+        legs: readyRoutes.flatMap((segmentRoute) => segmentRoute.legs),
+        steps: readyRoutes.flatMap((segmentRoute) => segmentRoute.steps),
+        mode: readyRoutes[0].mode,
+      };
 
       setRoute(nextRoute);
       setStatus('Маршрут построен от текущей геопозиции телефона.');
@@ -178,7 +224,7 @@ export const MobileRoutePage = () => {
           <p className="text-muted-foreground mt-3 text-sm">Запрашиваем GPS телефона...</p>
         )}
 
-        {route && sharedRoute.transportMode === 'walking' && (
+        {route && sharedRoute.segmentModes.every((mode) => mode === 'walking') && (
           <Button
             type="button"
             className="mt-4 w-full rounded-lg"

@@ -60,12 +60,16 @@ const RouteHandoffContent = ({ route, userLocation, initialMode }: RouteHandoffC
     [route.places, userLocation],
   );
 
+  const yandexTransportMode = route.segmentModes.every((segmentMode) => segmentMode === 'walking')
+    ? 'walking'
+    : undefined;
+
   const yandexUrl = useMemo(
     () =>
       buildYandexMapsRouteUrl(yandexRoutePoints, {
-        transportMode: route.transportMode,
+        transportMode: yandexTransportMode,
       }),
-    [route.transportMode, yandexRoutePoints],
+    [yandexRoutePoints, yandexTransportMode],
   );
 
   const canUseYandex = Boolean(userLocation) && canOpenRouteInYandexMaps(yandexRoutePoints);

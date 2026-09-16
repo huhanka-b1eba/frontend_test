@@ -13,6 +13,7 @@ const bytesToBase64Url = (bytes: Uint8Array) => {
 const toCompactRoute = (route: SharedRoute): CompactSharedRoute => ({
   v: 1,
   m: route.transportMode,
+  s: route.segmentModes,
   p: route.places.map((place) => ({
     i: place.id,
     oi: place.osmId,

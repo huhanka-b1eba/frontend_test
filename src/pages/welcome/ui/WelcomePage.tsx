@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelLeftOpen } from 'lucide-react';
 
 import { RouteHandoffModal } from '@features/start-walk';
 import { getNearbyPlaces, type Place } from '@shared/api/overpass';
 import { getRoute, getRouteMatrix, type RoutePoint, type RouteResult } from '@shared/api/osrm';
+import { cn } from '@shared/lib/cn';
 import { useIsMobile } from '@shared/lib/device';
 import { createRouteShareUrl, type SharedRoute } from '@shared/lib/route-share';
 import { isRoutableTransportMode, type TransportMode } from '@shared/lib/transport';
-import { buildYandexMapsRouteUrl, canOpenRouteInYandexMaps } from '@shared/lib/yandex-maps';
 import { Button } from '@shared/ui/button';
 import { Map } from '@shared/ui/map';
 import type { UserLocation } from '@shared/ui/map';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@shared/ui/tooltip';
 import { filterPlaces, type PlaceFilter } from '../model/placeFilters';
 import { optimizeRoutePlaces } from '../model/optimizeRoutePlaces';
 import {
@@ -18,6 +20,18 @@ import {
   updateRoutePlaceVisitDuration,
   type RoutePlace,
 } from '../model/routePlaces';
+import {
+  applyBuiltRouteSegment,
+  areAllSegmentsWalking,
+  createRouteSegments,
+  getRouteSegmentPoints,
+  getRouteSegmentsSummary,
+  markRouteSegmentError,
+  markRouteSegmentLoading,
+  updateRouteSegmentMode,
+  type BuiltRouteSegment,
+  type RouteSegment,
+} from '../model/routeSegments';
 import { PlaceFilters } from './PlaceFilters';
 import { RouteSidebar } from './RouteSidebar';
 
@@ -79,7 +93,7 @@ export const WelcomePage = () => {
   const [activeFilter, setActiveFilter] = useState<PlaceFilter>('all');
   const [transportMode, setTransportMode] = useState<TransportMode>('walking');
   const [routePlaces, setRoutePlaces] = useState<RoutePlace[]>([]);
-  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [routeSegments, setRouteSegments] = useState<RouteSegment[]>([]);
   const [routeDirty, setRouteDirty] = useState(false);
   const [isPlacesLoading, setIsPlacesLoading] = useState(false);
   const [placesError, setPlacesError] = useState<string | null>(null);
@@ -90,6 +104,7 @@ export const WelcomePage = () => {
   const [routeError, setRouteError] = useState<string | null>(null);
   const [optimizationError, setOptimizationError] = useState<string | null>(null);
   const [handoffModalOpen, setHandoffModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const hasLoadedGpsPlacesRef = useRef(false);
   const placesRequestIdRef = useRef(0);
 
@@ -100,6 +115,37 @@ export const WelcomePage = () => {
   const routePlaceIds = useMemo(() => {
     return new Set(routePlaces.map((place) => place.id));
   }, [routePlaces]);
+
+  const routeSegmentsSummary = useMemo(() => {
+    return getRouteSegmentsSummary(routeSegments);
+  }, [routeSegments]);
+
+  const routeGeometry = routeSegmentsSummary?.geometry ?? null;
+  const hasRouteGeometry = Boolean(routeGeometry);
+  const isWalkingRoute = areAllSegmentsWalking(routeSegments);
+  const isRoutePrepared =
+    routeSegments.length === routePlaces.length &&
+    routeSegments.length > 0 &&
+    routeSegments.every(
+      (segment) => segment.status === 'ready' || segment.status === 'unsupported',
+    );
+  const route = useMemo<RouteResult | null>(() => {
+    if (!routeSegmentsSummary?.geometry) {
+      return null;
+    }
+
+    return {
+      geometry: routeSegmentsSummary.geometry,
+      distance: routeSegmentsSummary.distance ?? 0,
+      duration: routeSegmentsSummary.duration ?? 0,
+      legs: routeSegments.map((segment) => ({
+        distance: segment.distance ?? 0,
+        duration: segment.duration ?? 0,
+      })),
+      steps: [],
+      mode: 'walking',
+    };
+  }, [routeSegments, routeSegmentsSummary]);
 
   const loadPlaces = useCallback(async (center: typeof KAZAN_CENTER) => {
     const requestId = placesRequestIdRef.current + 1;
@@ -147,6 +193,14 @@ export const WelcomePage = () => {
   const handleLocationChange = useCallback(
     (location: UserLocation) => {
       setUserLocation(location);
+      setRouteSegments((previousSegments) =>
+        createRouteSegments({
+          userLocation: location,
+          places: routePlaces,
+          previousSegments,
+          defaultMode: transportMode,
+        }),
+      );
 
       if (!hasLoadedGpsPlacesRef.current) {
         hasLoadedGpsPlacesRef.current = true;
@@ -156,7 +210,7 @@ export const WelcomePage = () => {
         });
       }
     },
-    [loadPlaces],
+    [loadPlaces, routePlaces, transportMode],
   );
 
   const handlePlaceSelect = useCallback((place: Place) => {
@@ -171,12 +225,10 @@ export const WelcomePage = () => {
       }
 
       setTransportMode(nextMode);
-      setRouteDirty(Boolean(route));
       setRouteError(null);
       setOptimizationError(null);
-      setIsRouteOptimized(false);
     },
-    [route, transportMode],
+    [transportMode],
   );
 
   const handleAddRoutePlace = useCallback(
@@ -186,15 +238,25 @@ export const WelcomePage = () => {
         return;
       }
 
-      setRoutePlaces(addRoutePlace(routePlaces, place));
-      setRouteDirty(Boolean(route));
+      const nextRoutePlaces = addRoutePlace(routePlaces, place);
+
+      setRoutePlaces(nextRoutePlaces);
+      setRouteSegments((previousSegments) =>
+        createRouteSegments({
+          userLocation,
+          places: nextRoutePlaces,
+          previousSegments,
+          defaultMode: transportMode,
+        }),
+      );
+      setRouteDirty(hasRouteGeometry || routeSegments.length > 0);
       setRouteError(null);
       setOptimizationError(null);
       setRoutePlacesMessage(null);
       setIsRouteOptimized(false);
       setSelectedPlace(null);
     },
-    [route, routePlaces],
+    [hasRouteGeometry, routePlaces, routeSegments.length, transportMode, userLocation],
   );
 
   const handleRemoveRoutePlace = useCallback(
@@ -202,12 +264,20 @@ export const WelcomePage = () => {
       const nextRoutePlaces = removeRoutePlace(routePlaces, placeId);
 
       setRoutePlaces(nextRoutePlaces);
+      setRouteSegments((previousSegments) =>
+        createRouteSegments({
+          userLocation,
+          places: nextRoutePlaces,
+          previousSegments,
+          defaultMode: transportMode,
+        }),
+      );
 
       if (nextRoutePlaces.length === 0) {
-        setRoute(null);
+        setRouteSegments([]);
         setRouteDirty(false);
       } else {
-        setRouteDirty(Boolean(route));
+        setRouteDirty(hasRouteGeometry || routeSegments.length > 0);
       }
 
       setRouteError(null);
@@ -215,12 +285,12 @@ export const WelcomePage = () => {
       setRoutePlacesMessage(null);
       setIsRouteOptimized(false);
     },
-    [route, routePlaces],
+    [hasRouteGeometry, routePlaces, routeSegments.length, transportMode, userLocation],
   );
 
   const handleClearRoutePlaces = useCallback(() => {
     setRoutePlaces([]);
-    setRoute(null);
+    setRouteSegments([]);
     setRouteDirty(false);
     setRouteError(null);
     setOptimizationError(null);
@@ -262,46 +332,63 @@ export const WelcomePage = () => {
     ];
   }, []);
 
-  const getYandexRoutePoints = useCallback(
-    (location: UserLocation, placesForRoute: RoutePlace[]) => {
-      return [
-        {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
-        ...placesForRoute.map((place) => ({
-          latitude: place.latitude,
-          longitude: place.longitude,
-        })),
-      ];
-    },
-    [],
-  );
+  const buildRouteSegment = useCallback(async (segment: RouteSegment) => {
+    const points = getRouteSegmentPoints(segment);
 
-  const buildRouteForPlaces = useCallback(
-    async (placesForRoute: RoutePlace[]) => {
-      if (!userLocation || placesForRoute.length === 0) {
-        return null;
-      }
+    if (!points || !isRoutableTransportMode(segment.mode)) {
+      return {
+        ...segment,
+        geometry: null,
+        distance: null,
+        duration: null,
+        status: 'unsupported' as const,
+      };
+    }
 
-      if (!isRoutableTransportMode(transportMode)) {
-        return null;
-      }
+    const nextRoute = await getRoute(points, segment.mode);
 
-      const nextRoute = await getRoute(getRoutePoints(userLocation, placesForRoute), transportMode);
+    return {
+      ...segment,
+      mode: segment.mode,
+      geometry: nextRoute.geometry,
+      distance: nextRoute.distance,
+      duration: nextRoute.duration,
+      status: 'ready' as const,
+      error: undefined,
+    } satisfies BuiltRouteSegment;
+  }, []);
 
-      console.log('[OSRM] route metrics', {
-        distanceMeters: nextRoute.distance,
-        durationSeconds: nextRoute.duration,
-        durationMinutes: nextRoute.duration / 60,
-      });
+  const buildRouteSegments = useCallback(
+    async (segmentsToBuild: RouteSegment[]) => {
+      const routableSegmentIds = segmentsToBuild
+        .filter((segment) => isRoutableTransportMode(segment.mode))
+        .map((segment) => segment.id);
 
-      setRoute(nextRoute);
+      setRouteSegments((previousSegments) =>
+        routableSegmentIds.reduce(
+          (nextSegments, segmentId) => markRouteSegmentLoading(nextSegments, segmentId),
+          previousSegments,
+        ),
+      );
+
+      const builtSegments = await Promise.all(
+        segmentsToBuild.map((segment) => buildRouteSegment(segment)),
+      );
+
+      setRouteSegments(builtSegments);
       setRouteDirty(false);
 
-      return nextRoute;
+      const summary = getRouteSegmentsSummary(builtSegments);
+
+      console.log('[OSRM] route metrics', {
+        distanceMeters: summary?.distance,
+        durationSeconds: summary?.duration,
+        durationMinutes: summary?.duration ? summary.duration / 60 : null,
+      });
+
+      return builtSegments;
     },
-    [getRoutePoints, transportMode, userLocation],
+    [buildRouteSegment],
   );
 
   const handleBuildRoute = async () => {
@@ -309,28 +396,18 @@ export const WelcomePage = () => {
       return;
     }
 
-    if (transportMode === 'transit') {
-      if (isMobile) {
-        const yandexRoutePoints = getYandexRoutePoints(userLocation, routePlaces);
-
-        if (!canOpenRouteInYandexMaps(yandexRoutePoints)) {
-          setRouteError('Этот маршрут слишком большой для передачи в Яндекс Карты');
-          return;
-        }
-
-        window.location.href = buildYandexMapsRouteUrl(yandexRoutePoints, { transportMode });
-        return;
-      }
-
-      setHandoffModalOpen(true);
-      return;
-    }
-
     setIsRouteLoading(true);
     setRouteError(null);
 
     try {
-      await buildRouteForPlaces(routePlaces);
+      const nextSegments = createRouteSegments({
+        userLocation,
+        places: routePlaces,
+        previousSegments: routeSegments,
+        defaultMode: transportMode,
+      });
+
+      await buildRouteSegments(nextSegments);
     } catch (error) {
       console.error('[OSRM] route request failed', error);
       setRouteError('Не удалось построить маршрут через выбранные места');
@@ -354,14 +431,21 @@ export const WelcomePage = () => {
         places: routePlaces,
         matrix,
       });
+      const optimizedSegments = createRouteSegments({
+        userLocation,
+        places: optimizedPlaces,
+        previousSegments: routeSegments,
+        defaultMode: transportMode,
+      });
 
       setRoutePlaces(optimizedPlaces);
-      setRouteDirty(Boolean(route));
+      setRouteSegments(optimizedSegments);
+      setRouteDirty(hasRouteGeometry || routeSegments.length > 0);
       setIsRouteOptimized(true);
 
       try {
         setIsRouteLoading(true);
-        await buildRouteForPlaces(optimizedPlaces);
+        await buildRouteSegments(optimizedSegments);
       } catch (routeBuildError) {
         console.error('[OSRM] optimized route request failed', routeBuildError);
         setRouteError('Не удалось построить маршрут через выбранные места');
@@ -374,6 +458,44 @@ export const WelcomePage = () => {
       setIsRouteLoading(false);
     }
   };
+
+  const handleSegmentModeChange = useCallback(
+    (segmentId: string, nextMode: TransportMode) => {
+      const currentSegment = routeSegments.find((segment) => segment.id === segmentId);
+
+      if (!currentSegment || currentSegment.mode === nextMode) {
+        return;
+      }
+
+      const nextSegments = updateRouteSegmentMode(routeSegments, segmentId, nextMode);
+
+      setRouteSegments(nextSegments);
+      setRouteError(null);
+
+      const nextSegment = nextSegments.find((segment) => segment.id === segmentId);
+
+      if (!nextSegment || !isRoutableTransportMode(nextSegment.mode)) {
+        return;
+      }
+
+      setRouteSegments((previousSegments) => markRouteSegmentLoading(previousSegments, segmentId));
+
+      void buildRouteSegment(nextSegment)
+        .then((builtSegment) => {
+          setRouteSegments((previousSegments) =>
+            applyBuiltRouteSegment(previousSegments, segmentId, builtSegment),
+          );
+        })
+        .catch((error: unknown) => {
+          console.error('[OSRM] segment route request failed', error);
+          setRouteSegments((previousSegments) =>
+            markRouteSegmentError(previousSegments, segmentId, 'Не удалось построить участок'),
+          );
+          setRouteError('Не удалось построить выбранный участок');
+        });
+    },
+    [buildRouteSegment, routeSegments],
+  );
 
   const handleVisitDurationChange = useCallback((placeId: string, durationMinutes: number) => {
     setRoutePlaces((previousPlaces) =>
@@ -390,6 +512,7 @@ export const WelcomePage = () => {
     () => ({
       version: 1,
       transportMode,
+      segmentModes: routeSegments.map((segment) => segment.mode),
       places: routePlaces.map((place) => ({
         id: place.id,
         osmId: place.osmId,
@@ -401,32 +524,11 @@ export const WelcomePage = () => {
         visitDurationMinutes: place.visitDurationMinutes,
       })),
     }),
-    [routePlaces, transportMode],
+    [routePlaces, routeSegments, transportMode],
   );
 
   const handleStartWalk = useCallback(() => {
-    if (routePlaces.length === 0 || routeDirty) {
-      return;
-    }
-
-    if (transportMode === 'transit') {
-      if (isMobile && userLocation) {
-        const yandexRoutePoints = getYandexRoutePoints(userLocation, routePlaces);
-
-        if (!canOpenRouteInYandexMaps(yandexRoutePoints)) {
-          setRouteError('Этот маршрут слишком большой для передачи в Яндекс Карты');
-          return;
-        }
-
-        window.location.href = buildYandexMapsRouteUrl(yandexRoutePoints, { transportMode });
-        return;
-      }
-
-      setHandoffModalOpen(true);
-      return;
-    }
-
-    if (!route) {
+    if (routePlaces.length === 0 || routeDirty || !isRoutePrepared) {
       return;
     }
 
@@ -436,47 +538,58 @@ export const WelcomePage = () => {
     }
 
     setHandoffModalOpen(true);
-  }, [
-    getYandexRoutePoints,
-    isMobile,
-    route,
-    routeDirty,
-    routePlaces,
-    sharedRoute,
-    transportMode,
-    userLocation,
-  ]);
+  }, [isMobile, isRoutePrepared, routeDirty, routePlaces.length, sharedRoute]);
 
   return (
-    <main className="bg-background grid h-dvh w-screen grid-rows-[45dvh_55dvh] overflow-hidden lg:grid-cols-[380px_minmax(0,1fr)] lg:grid-rows-none xl:grid-cols-[400px_minmax(0,1fr)]">
-      <RouteSidebar
-        places={routePlaces}
-        route={route}
-        routeDirty={routeDirty}
-        hasUserLocation={Boolean(userLocation)}
-        isRouteLoading={isRouteLoading}
-        isOptimizing={isOptimizing}
-        isOptimized={isRouteOptimized}
-        routeError={routeError}
-        optimizationError={optimizationError}
-        transportMode={transportMode}
-        getCategoryTitle={getCategoryTitle}
-        onTransportModeChange={handleTransportModeChange}
-        onBuildRoute={() => {
-          void handleBuildRoute();
-        }}
-        onOptimizeRoute={() => {
-          void handleOptimizeRoute();
-        }}
-        onStartNavigation={() => {
-          handleStartWalk();
-        }}
-        onClearRoute={handleClearRoutePlaces}
-        onRemovePlace={handleRemoveRoutePlace}
-        onVisitDurationChange={handleVisitDurationChange}
-      />
+    <main
+      className={cn(
+        'bg-background grid h-dvh w-screen grid-rows-[45dvh_55dvh] overflow-hidden lg:grid-rows-none lg:transition-[grid-template-columns] lg:duration-200 lg:ease-out motion-reduce:lg:transition-none',
+        isSidebarOpen
+          ? 'lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]'
+          : 'lg:grid-cols-[0px_minmax(0,1fr)]',
+      )}
+    >
+      <div
+        className="min-w-0 overflow-hidden max-lg:order-2"
+        aria-hidden={!isSidebarOpen && !isMobile}
+        inert={!isSidebarOpen && !isMobile}
+      >
+        <RouteSidebar
+          places={routePlaces}
+          route={route}
+          segments={routeSegments}
+          routeDirty={routeDirty}
+          isWalkingRoute={isWalkingRoute}
+          isRoutePrepared={isRoutePrepared}
+          hasUserLocation={Boolean(userLocation)}
+          isRouteLoading={isRouteLoading}
+          isOptimizing={isOptimizing}
+          isOptimized={isRouteOptimized}
+          routeError={routeError}
+          optimizationError={optimizationError}
+          transportMode={transportMode}
+          getCategoryTitle={getCategoryTitle}
+          onTransportModeChange={handleTransportModeChange}
+          onSegmentModeChange={handleSegmentModeChange}
+          onBuildRoute={() => {
+            void handleBuildRoute();
+          }}
+          onOptimizeRoute={() => {
+            void handleOptimizeRoute();
+          }}
+          onStartNavigation={() => {
+            handleStartWalk();
+          }}
+          onSidebarClose={() => {
+            setIsSidebarOpen(false);
+          }}
+          onClearRoute={handleClearRoutePlaces}
+          onRemovePlace={handleRemoveRoutePlace}
+          onVisitDurationChange={handleVisitDurationChange}
+        />
+      </div>
 
-      {(route || transportMode === 'transit') && !routeDirty && routePlaces.length > 0 && (
+      {isRoutePrepared && !routeDirty && routePlaces.length > 0 && (
         <RouteHandoffModal
           open={handoffModalOpen}
           route={sharedRoute}
@@ -492,14 +605,39 @@ export const WelcomePage = () => {
           places={filteredPlaces}
           routePlaces={routePlaces}
           selectedPlace={selectedPlace}
-          route={route?.geometry ?? null}
+          route={routeGeometry}
           routeDirty={routeDirty}
           onLocationChange={handleLocationChange}
           onPlaceSelect={handlePlaceSelect}
         />
 
         <div className="absolute top-3 right-16 left-3 z-10 flex flex-col gap-2 lg:top-4 lg:right-20 lg:left-4">
-          <PlaceFilters places={places} value={activeFilter} onChange={handleFilterChange} />
+          <div className="flex items-start gap-2">
+            {!isSidebarOpen && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="bg-card/95 shadow-soft hidden shrink-0 lg:inline-flex"
+                    aria-label="Показать маршрут"
+                    aria-expanded={false}
+                    onClick={() => {
+                      setIsSidebarOpen(true);
+                    }}
+                  >
+                    <PanelLeftOpen className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Показать маршрут</TooltipContent>
+              </Tooltip>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <PlaceFilters places={places} value={activeFilter} onChange={handleFilterChange} />
+            </div>
+          </div>
 
           {isPlacesLoading && (
             <p className="bg-card text-muted-foreground shadow-soft w-fit rounded-lg border px-3 py-2 text-sm">

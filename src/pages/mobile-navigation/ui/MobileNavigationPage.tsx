@@ -34,7 +34,7 @@ export const MobileNavigationPage = () => {
   const places = useMemo(() => toNavigationPlaces(sharedRoute), [sharedRoute]);
   const [isFollowingUser, setIsFollowingUser] = useState(true);
   const [isRouteListOpen, setIsRouteListOpen] = useState(false);
-  const isWalkingRoute = sharedRoute?.transportMode === 'walking';
+  const isWalkingRoute = sharedRoute?.segmentModes.every((mode) => mode === 'walking') ?? false;
   const navigation = useNavigation(places ?? [], isMobile && Boolean(places) && isWalkingRoute);
   const { state, currentPlace, currentLeg, currentStep } = navigation;
   const mapRoutePlaces = useMemo(

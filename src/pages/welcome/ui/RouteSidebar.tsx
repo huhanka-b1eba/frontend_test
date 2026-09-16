@@ -1,23 +1,32 @@
+import { PanelLeftClose } from 'lucide-react';
+
 import type { RouteResult } from '@shared/api/osrm';
 import type { Place } from '@shared/api/overpass';
 import { TRANSPORT_MODE_TRAVEL_LABELS, type TransportMode } from '@shared/lib/transport';
 import { Button } from '@shared/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@shared/ui/tooltip';
 
 import {
   formatDistanceMeters,
   formatDurationMinutes,
-  getTotalRouteDurationMinutes,
-  getTravelDurationMinutes,
+  getTotalRouteDurationMinutesFromSegments,
+  getTravelDistanceMetersFromSegments,
+  getTravelDurationMinutesFromSegments,
   getVisitDurationMinutes,
 } from '../model/routeDuration';
 import type { RoutePlace } from '../model/routePlaces';
+import type { RouteSegment } from '../model/routeSegments';
 import { RoutePreviewPlace } from './RoutePreviewPlace';
+import { RouteSegmentModeControl } from './RouteSegmentModeControl';
 import { TransportModeSelector } from './TransportModeSelector';
 
 type RouteSidebarProps = {
   places: RoutePlace[];
   route: RouteResult | null;
+  segments: RouteSegment[];
   routeDirty: boolean;
+  isWalkingRoute: boolean;
+  isRoutePrepared: boolean;
   hasUserLocation: boolean;
   isRouteLoading: boolean;
   isOptimizing: boolean;
@@ -27,9 +36,11 @@ type RouteSidebarProps = {
   transportMode: TransportMode;
   getCategoryTitle: (place: Place) => string;
   onTransportModeChange: (mode: TransportMode) => void;
+  onSegmentModeChange: (segmentId: string, mode: TransportMode) => void;
   onBuildRoute: () => void;
   onOptimizeRoute: () => void;
   onStartNavigation: () => void;
+  onSidebarClose: () => void;
   onClearRoute: () => void;
   onRemovePlace: (placeId: string) => void;
   onVisitDurationChange: (placeId: string, durationMinutes: number) => void;
@@ -38,7 +49,10 @@ type RouteSidebarProps = {
 export const RouteSidebar = ({
   places,
   route,
+  segments,
   routeDirty,
+  isWalkingRoute,
+  isRoutePrepared,
   hasUserLocation,
   isRouteLoading,
   isOptimizing,
@@ -48,30 +62,34 @@ export const RouteSidebar = ({
   transportMode,
   getCategoryTitle,
   onTransportModeChange,
+  onSegmentModeChange,
   onBuildRoute,
   onOptimizeRoute,
   onStartNavigation,
+  onSidebarClose,
   onClearRoute,
   onRemovePlace,
   onVisitDurationChange,
 }: RouteSidebarProps) => {
-  const travelDurationMinutes = route && !routeDirty ? getTravelDurationMinutes(route) : null;
+  const travelDurationMinutes =
+    route && !routeDirty ? getTravelDurationMinutesFromSegments(segments) : null;
+  const travelDistanceMeters =
+    route && !routeDirty ? getTravelDistanceMetersFromSegments(segments) : null;
   const visitDurationMinutes = getVisitDurationMinutes(places);
   const totalDurationMinutes =
-    route && !routeDirty ? getTotalRouteDurationMinutes(route, places) : null;
+    route && !routeDirty ? getTotalRouteDurationMinutesFromSegments(segments, places) : null;
   const isActionDisabled =
     !hasUserLocation || places.length === 0 || isRouteLoading || isOptimizing;
   const isTransitMode = transportMode === 'transit';
-  const buildRouteLabel = isTransitMode
-    ? 'Открыть в Яндекс Картах'
-    : isRouteLoading
-      ? 'Строим маршрут...'
-      : routeDirty
-        ? 'Обновить маршрут'
-        : route
-          ? 'Перестроить маршрут'
-          : 'Построить маршрут';
-  const startNavigationLabel = transportMode === 'walking' ? 'Начать прогулку' : 'Открыть маршрут';
+  const canOpenRoute = isRoutePrepared && !routeDirty;
+  const buildRouteLabel = isRouteLoading
+    ? 'Строим маршрут...'
+    : routeDirty
+      ? 'Обновить маршрут'
+      : route
+        ? 'Перестроить маршрут'
+        : 'Построить маршрут';
+  const startNavigationLabel = isWalkingRoute ? 'Начать прогулку' : 'Открыть маршрут';
 
   return (
     <aside className="bg-card text-foreground flex h-dvh min-w-[360px] flex-col overflow-hidden border-r max-lg:order-2 max-lg:h-[55dvh] max-lg:w-full max-lg:min-w-0 max-lg:border-t max-lg:border-r-0 lg:w-[380px] xl:w-[400px]">
@@ -83,15 +101,34 @@ export const RouteSidebar = ({
             </p>
             <h1 className="mt-1 truncate text-lg font-semibold">
               {places.length} мест
-              {route && !routeDirty && ` · ${formatDistanceMeters(route.distance)}`}
+              {travelDistanceMeters !== null && ` · ${formatDistanceMeters(travelDistanceMeters)}`}
             </h1>
           </div>
 
-          {places.length > 0 && (
-            <Button type="button" variant="ghost" size="xs" onClick={onClearRoute}>
-              Очистить
-            </Button>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {places.length > 0 && (
+              <Button type="button" variant="ghost" size="xs" onClick={onClearRoute}>
+                Очистить
+              </Button>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden lg:inline-flex"
+                  aria-label="Скрыть панель"
+                  aria-expanded
+                  onClick={onSidebarClose}
+                >
+                  <PanelLeftClose className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Скрыть панель</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
@@ -151,17 +188,28 @@ export const RouteSidebar = ({
             </div>
 
             <ol className="flex flex-col gap-2">
-              {places.map((place, index) => (
-                <RoutePreviewPlace
-                  key={place.id}
-                  place={place}
-                  leg={route?.legs[index]}
-                  routeDirty={routeDirty || !route}
-                  categoryTitle={getCategoryTitle(place)}
-                  onVisitDurationChange={onVisitDurationChange}
-                  onRemovePlace={onRemovePlace}
-                />
-              ))}
+              {places.map((place, index) => {
+                const segment = segments[index];
+
+                return (
+                  <RoutePreviewPlace
+                    key={place.id}
+                    place={place}
+                    segmentControl={
+                      segment ? (
+                        <RouteSegmentModeControl
+                          segment={segment}
+                          routeDirty={routeDirty || !route}
+                          onModeChange={onSegmentModeChange}
+                        />
+                      ) : null
+                    }
+                    categoryTitle={getCategoryTitle(place)}
+                    onVisitDurationChange={onVisitDurationChange}
+                    onRemovePlace={onRemovePlace}
+                  />
+                );
+              })}
             </ol>
           </>
         )}
@@ -200,7 +248,7 @@ export const RouteSidebar = ({
           <Button
             type="button"
             variant="secondary"
-            disabled={!route || routeDirty || isRouteLoading || isOptimizing || isTransitMode}
+            disabled={!canOpenRoute || isRouteLoading || isOptimizing}
             onClick={onStartNavigation}
           >
             {startNavigationLabel}

@@ -2,7 +2,10 @@ import echpochmakMarker from '@shared/assets/icons/echpochmak-marker.svg';
 
 export const HeroIllustration = () => {
   return (
-    <div className="relative mx-auto h-[190px] w-full max-w-[330px]" aria-hidden="true">
+    <div
+      className="relative mx-auto h-[230px] w-full max-w-[390px] sm:h-[286px]"
+      aria-hidden="true"
+    >
       <svg viewBox="0 0 358 286" className="absolute inset-0 h-full w-full" fill="none">
         <path
           d="M21 238C62 214 106 217 148 234C195 253 246 250 337 216"
@@ -23,7 +26,7 @@ export const HeroIllustration = () => {
           <path d="M14 111H109V124H14V111Z" fill="hsl(var(--primary))" />
           <path
             d="M27 64H95V111H27V64Z"
-            fill="#F8F3E8"
+            fill="hsl(var(--card))"
             stroke="hsl(var(--primary))"
             strokeWidth="4"
           />
@@ -33,7 +36,7 @@ export const HeroIllustration = () => {
           <path d="M18 64C31 48 42 39 61 39C80 39 94 49 105 64H18Z" fill="hsl(var(--primary))" />
           <path
             d="M61 11C76 27 86 42 88 60H34C36 42 46 27 61 11Z"
-            fill="#F8F3E8"
+            fill="hsl(var(--card))"
             stroke="hsl(var(--primary))"
             strokeWidth="4"
           />
@@ -43,7 +46,7 @@ export const HeroIllustration = () => {
         <g transform="translate(166 22)">
           <path
             d="M38 7L63 128H13L38 7Z"
-            fill="#F8F3E8"
+            fill="hsl(var(--card))"
             stroke="hsl(var(--primary))"
             strokeWidth="5"
           />
@@ -69,7 +72,7 @@ export const HeroIllustration = () => {
           <path d="M17 95H89V112H17V95Z" fill="hsl(var(--primary))" />
           <path
             d="M25 46H81V95H25V46Z"
-            fill="#F8F3E8"
+            fill="hsl(var(--card))"
             stroke="hsl(var(--primary))"
             strokeWidth="4"
           />
@@ -87,7 +90,12 @@ export const HeroIllustration = () => {
 
         <g transform="translate(214 178)">
           <path d="M0 41H82V55H0V41Z" fill="hsl(var(--primary))" />
-          <path d="M9 13H72V41H9V13Z" fill="#F8F3E8" stroke="hsl(var(--primary))" strokeWidth="4" />
+          <path
+            d="M9 13H72V41H9V13Z"
+            fill="hsl(var(--card))"
+            stroke="hsl(var(--primary))"
+            strokeWidth="4"
+          />
           <path d="M2 13L41 0L80 13H2Z" fill="hsl(var(--destructive))" />
           <path d="M19 25H31V41H19V25Z" fill="hsl(var(--accent))" />
           <path d="M42 25H54V41H42V25Z" fill="hsl(var(--primary))" opacity="0.72" />
@@ -116,7 +124,7 @@ export const HeroIllustration = () => {
       <img
         src={echpochmakMarker}
         alt=""
-        className="welcome-route-point absolute top-[164px] left-[139px] h-[58px] w-[52px] drop-shadow-[0_14px_18px_rgba(16,46,38,0.18)]"
+        className="welcome-route-point absolute top-[58%] left-[39%] h-[58px] w-[52px] drop-shadow-[0_10px_0_rgba(0,0,0,0.12)]"
       />
 
       <div className="bg-accent absolute top-5 left-7 size-3 rounded-full" />

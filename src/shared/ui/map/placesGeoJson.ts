@@ -5,6 +5,9 @@ export type PlacesFeatureProperties = {
   name: string;
   category: PlaceCategory;
   markerLabel: string;
+  categoryIconUrl: string;
+  imageUrl: string;
+  rating: number | null;
 };
 
 export type PlacesFeature = {
@@ -29,6 +32,9 @@ export type RoutePlacesFeatureProperties = {
   id: string;
   name: string;
   order: number;
+  category: PlaceCategory;
+  categoryIconUrl: string;
+  imageUrl: string;
 };
 
 export type RoutePlacesFeatureCollection = {
@@ -86,6 +92,9 @@ export const createPlacesFeatureCollection = (places: Place[]): PlacesFeatureCol
       name: place.name,
       category: place.category,
       markerLabel: getPlaceMarkerLabel(place.category),
+      categoryIconUrl: place.categoryIconUrl ?? place.tags.categoryIconUrl ?? '',
+      imageUrl: place.imageUrl ?? place.tags.imageUrl ?? '',
+      rating: place.rating ?? null,
     },
   })),
 });
@@ -104,6 +113,9 @@ export const createRoutePlacesFeatureCollection = (
       id: place.id,
       name: place.name,
       order: place.order,
+      category: place.category,
+      categoryIconUrl: place.categoryIconUrl ?? place.tags.categoryIconUrl ?? '',
+      imageUrl: place.imageUrl ?? place.tags.imageUrl ?? '',
     },
   })),
 });

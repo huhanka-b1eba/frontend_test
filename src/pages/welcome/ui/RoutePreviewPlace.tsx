@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Button } from '@shared/ui/button';
 
@@ -24,21 +25,22 @@ export const RoutePreviewPlace = ({
   onVisitDurationChange,
   onRemovePlace,
 }: RoutePreviewPlaceProps) => {
+  const { t } = useTranslation();
   const canDecrease = place.visitDurationMinutes > MIN_VISIT_DURATION_MINUTES;
   const canIncrease = place.visitDurationMinutes < MAX_VISIT_DURATION_MINUTES;
 
   return (
-    <li className="bg-background/55 rounded-xl border p-3">
+    <li className="bg-background/55 min-w-0 rounded-xl border p-3">
       {segmentControl && <div className="-mt-1 mb-2">{segmentControl}</div>}
 
-      <div className="flex gap-3">
+      <div className="flex min-w-0 gap-3">
         <span className="bg-primary text-primary-foreground grid size-7 shrink-0 place-items-center rounded-lg text-xs font-semibold">
           {place.order}
         </span>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <h3 className="line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-semibold">
+          <div className="flex min-w-0 items-start gap-2">
+            <h3 className="line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-semibold break-words">
               {place.name}
             </h3>
             {onRemovePlace && (
@@ -47,7 +49,7 @@ export const RoutePreviewPlace = ({
                 variant="ghost"
                 size="icon-xs"
                 className="rounded-md"
-                aria-label={`Удалить ${place.name}`}
+                aria-label={t('routeBuilderV2.sidebar.removePlace', { name: place.name })}
                 onClick={() => {
                   onRemovePlace(place.id);
                 }}
@@ -56,11 +58,13 @@ export const RoutePreviewPlace = ({
               </Button>
             )}
           </div>
-          <p className="text-muted-foreground text-xs">{categoryTitle}</p>
+          <p className="text-muted-foreground min-w-0 text-xs break-words">{categoryTitle}</p>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-muted-foreground text-xs">На месте</span>
-            <div className="flex items-center gap-2">
+          <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <span className="text-muted-foreground min-w-0 text-xs">
+              {t('routeBuilderV2.sidebar.visitTime')}
+            </span>
+            <div className="flex shrink-0 items-center gap-1.5">
               <Button
                 type="button"
                 variant="outline"
@@ -76,8 +80,10 @@ export const RoutePreviewPlace = ({
               >
                 −
               </Button>
-              <span className="w-14 text-center text-sm font-medium">
-                {place.visitDurationMinutes} мин
+              <span className="w-12 text-center text-sm font-medium whitespace-nowrap">
+                {t('routeBuilderV2.sidebar.inspect', {
+                  minutes: place.visitDurationMinutes,
+                }).replace(/^.*?·\s*/, '')}
               </span>
               <Button
                 type="button"

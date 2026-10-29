@@ -4,4 +4,5 @@ export type ApiClientConfig = {
 
 export type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   body?: BodyInit | null;
+  routeApiAction?: 'CREATE' | 'REBUILD';
 };

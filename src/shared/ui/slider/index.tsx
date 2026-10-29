@@ -4,14 +4,19 @@ import * as React from 'react';
 import { cn } from '@shared/lib/cn';
 import { Slider as SliderPrimitive } from 'radix-ui';
 
+type SliderProps = React.ComponentProps<typeof SliderPrimitive.Root> & {
+  thumbAriaLabels?: string[];
+};
+
 function Slider({
   className,
   defaultValue,
+  thumbAriaLabels,
   value,
   min = 0,
   max = 100,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: SliderProps) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
@@ -47,6 +52,7 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          aria-label={thumbAriaLabels?.[index]}
           className="border-primary ring-ring/50 block size-4 shrink-0 rounded-full border bg-white shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
         />
       ))}

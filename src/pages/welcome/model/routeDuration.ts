@@ -42,25 +42,31 @@ export const getTotalRouteDurationMinutesFromSegments = (
     : travelDurationMinutes + getVisitDurationMinutes(places);
 };
 
-export const formatDurationMinutes = (totalMinutes: number) => {
+type DurationLanguage = 'ru' | 'tt';
+
+export const formatDurationMinutes = (totalMinutes: number, language: DurationLanguage = 'ru') => {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
+  const hourUnit = language === 'tt' ? 'сәг' : 'ч';
+  const minuteUnit = language === 'tt' ? 'мин' : 'мин';
 
   if (hours === 0) {
-    return `${minutes} мин`;
+    return `${minutes} ${minuteUnit}`;
   }
 
   if (minutes === 0) {
-    return `${hours} ч`;
+    return `${hours} ${hourUnit}`;
   }
 
-  return `${hours} ч ${minutes} мин`;
+  return `${hours} ${hourUnit} ${minutes} ${minuteUnit}`;
 };
 
-export const formatDistanceMeters = (distance: number) => {
+export const formatDistanceMeters = (distance: number, language: DurationLanguage = 'ru') => {
   if (distance < 1000) {
     return `${Math.round(distance)} м`;
   }
 
-  return `${(distance / 1000).toFixed(1)} км`;
+  const formattedDistance = (distance / 1000).toFixed(1);
+
+  return `${formattedDistance} ${language === 'tt' ? 'км' : 'км'}`;
 };

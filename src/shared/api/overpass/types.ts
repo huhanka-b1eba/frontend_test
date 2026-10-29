@@ -39,6 +39,10 @@ export type Place = {
   longitude: number;
   category: PlaceCategory;
   tags: Record<string, string>;
+  categoryIconUrl?: string | null;
+  imageUrl?: string | null;
+  description?: string;
+  rating?: number | null;
 };
 
 export type NearbyPlacesParams = {

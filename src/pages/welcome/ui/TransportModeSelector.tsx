@@ -1,6 +1,7 @@
+import { useTranslation } from 'react-i18next';
 import { Bike, Bus, Car, Footprints } from 'lucide-react';
 
-import { TRANSPORT_MODE_LABELS, type TransportMode } from '@shared/lib/transport';
+import type { TransportMode } from '@shared/lib/transport';
 import { Button } from '@shared/ui/button';
 
 const TRANSPORT_OPTIONS: Array<{
@@ -19,9 +20,11 @@ type TransportModeSelectorProps = {
 };
 
 export const TransportModeSelector = ({ value, onChange }: TransportModeSelectorProps) => {
+  const { t } = useTranslation();
+
   return (
     <div>
-      <p className="text-muted-foreground mb-2 text-xs font-medium">Способ передвижения</p>
+      <p className="text-muted-foreground mb-2 text-xs font-medium">{t('app.transport.title')}</p>
       <div className="bg-background/65 flex gap-1 overflow-x-auto rounded-lg border p-1">
         {TRANSPORT_OPTIONS.map(({ mode, Icon }) => {
           const isActive = mode === value;
@@ -38,7 +41,7 @@ export const TransportModeSelector = ({ value, onChange }: TransportModeSelector
               }}
             >
               <Icon className="size-3.5" />
-              {TRANSPORT_MODE_LABELS[mode]}
+              {t(`app.transport.labels.${mode}`)}
             </Button>
           );
         })}

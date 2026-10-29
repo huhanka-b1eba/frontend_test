@@ -1,2 +1,2 @@
 export { Map } from './Map';
-export type { MapDestination, UserLocation } from './Map';
+export type { HistoricalViewport, MapDestination, UserLocation } from './Map';

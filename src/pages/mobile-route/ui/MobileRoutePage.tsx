@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { getRoute, type RoutePoint, type RouteResult } from '@shared/api/osrm';
 import type { PlaceCategory } from '@shared/api/overpass';
 import { decodeSharedRoute, type SharedRoute } from '@shared/lib/route-share';
-import {
-  isRoutableTransportMode,
-  TRANSPORT_MODE_LABELS,
-  type TransportMode,
-} from '@shared/lib/transport';
+import { isRoutableTransportMode, type TransportMode } from '@shared/lib/transport';
 import { Button } from '@shared/ui/button';
 import { Map } from '@shared/ui/map';
 import type { RouteMapPlace } from '@shared/ui/map/placesGeoJson';
@@ -16,36 +13,36 @@ type MobileRoutePlace = RouteMapPlace & {
   visitDurationMinutes: number;
 };
 
-const getCategoryTitle = (category: PlaceCategory) => {
+const getCategoryTitleKey = (category: PlaceCategory) => {
   switch (category) {
     case 'attraction':
-      return 'Достопримечательность';
+      return 'routeBuilder.categories.attraction';
     case 'museum':
-      return 'Музей';
+      return 'routeBuilder.categories.museum';
     case 'gallery':
-      return 'Галерея';
+      return 'routeBuilder.categories.gallery';
     case 'artwork':
-      return 'Арт-объект';
+      return 'routeBuilder.categories.artwork';
     case 'viewpoint':
-      return 'Смотровая точка';
+      return 'routeBuilder.categories.viewpoint';
     case 'historic':
-      return 'Историческое место';
+      return 'routeBuilder.categories.historic';
     case 'place_of_worship':
-      return 'Религия';
+      return 'routeBuilder.categories.placeOfWorship';
     case 'theatre':
-      return 'Театр';
+      return 'routeBuilder.categories.theatre';
     case 'cafe':
-      return 'Кафе';
+      return 'routeBuilder.categories.cafe';
     case 'restaurant':
-      return 'Ресторан';
+      return 'routeBuilder.categories.restaurant';
     case 'arts_centre':
-      return 'Центр искусств';
+      return 'routeBuilder.categories.artsCentre';
     case 'park':
-      return 'Парк';
+      return 'routeBuilder.categories.park';
     case 'garden':
-      return 'Сад';
+      return 'routeBuilder.categories.garden';
     default:
-      return 'Место';
+      return 'routeBuilder.categories.unknown';
   }
 };
 
@@ -80,6 +77,7 @@ const getSegmentMode = (route: SharedRoute, index: number): TransportMode => {
 };
 
 export const MobileRoutePage = () => {
+  const { t } = useTranslation();
   const searchParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const sharedRoute = useMemo(() => decodeSharedRoute(searchParams.get('data')), [searchParams]);
   const routePlaces = useMemo(
@@ -88,7 +86,7 @@ export const MobileRoutePage = () => {
   );
   const [phoneLocation, setPhoneLocation] = useState<RoutePoint | null>(null);
   const [route, setRoute] = useState<RouteResult | null>(null);
-  const [status, setStatus] = useState('Разрешите доступ к геопозиции, чтобы начать прогулку.');
+  const [status, setStatus] = useState(t('mobileRoute.status.requestGps'));
   const [error, setError] = useState<string | null>(null);
 
   const buildRouteFromPhone = useCallback(
@@ -130,7 +128,7 @@ export const MobileRoutePage = () => {
       );
 
       if (readyRoutes.length === 0) {
-        setStatus('Маршрут будет открыт в Яндекс Картах.');
+        setStatus(t('mobileRoute.status.yandex'));
         return;
       }
 
@@ -152,9 +150,9 @@ export const MobileRoutePage = () => {
       };
 
       setRoute(nextRoute);
-      setStatus('Маршрут построен от текущей геопозиции телефона.');
+      setStatus(t('mobileRoute.status.ready'));
     },
-    [sharedRoute],
+    [sharedRoute, t],
   );
 
   useEffect(() => {
@@ -180,20 +178,22 @@ export const MobileRoutePage = () => {
           return;
         }
 
-        setError('Геопозиция недоступна. Список мест сохранён, но маршрут пока не построен.');
+        setError(t('mobileRoute.status.gpsError'));
       });
 
     return () => {
       isActive = false;
     };
-  }, [buildRouteFromPhone, sharedRoute]);
+  }, [buildRouteFromPhone, sharedRoute, t]);
 
   if (!sharedRoute) {
     return (
       <main className="bg-background grid min-h-dvh place-items-center p-4">
         <section className="bg-card w-full max-w-sm rounded-xl border p-4 text-center">
-          <h1 className="font-semibold">Не удалось открыть маршрут</h1>
-          <p className="text-muted-foreground mt-2 text-sm">Ссылка повреждена или устарела.</p>
+          <h1 className="font-semibold">{t('mobileRoute.invalid.title')}</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {t('mobileRoute.invalid.description')}
+          </p>
           <Button
             type="button"
             className="mt-4 w-full"
@@ -201,7 +201,7 @@ export const MobileRoutePage = () => {
               window.location.href = '/';
             }}
           >
-            Вернуться на главную
+            {t('mobileRoute.actions.home')}
           </Button>
         </section>
       </main>
@@ -213,18 +213,22 @@ export const MobileRoutePage = () => {
       <Map className="h-full" routePlaces={routePlaces} route={route?.geometry ?? null} />
 
       <section className="bg-card text-card-foreground shadow-mobile-sheet absolute right-0 bottom-0 left-0 z-20 max-h-[55dvh] overflow-y-auto rounded-t-xl border-t px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-        <p className="text-muted-foreground text-xs font-medium tracking-normal">Наш навигатор</p>
-        <h1 className="mt-1 font-semibold">{sharedRoute.places.length} мест в маршруте</h1>
+        <p className="text-muted-foreground text-xs font-medium tracking-normal">
+          {t('mobileRoute.sheet.label')}
+        </p>
+        <h1 className="mt-1 font-semibold">
+          {t('mobileRoute.sheet.places', { count: sharedRoute.places.length })}
+        </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          {TRANSPORT_MODE_LABELS[sharedRoute.transportMode]}
+          {t(`app.transport.labels.${sharedRoute.transportMode}`)}
         </p>
         <p className="text-muted-foreground mt-2 text-sm">{error ?? status}</p>
 
         {!phoneLocation && !error && (
-          <p className="text-muted-foreground mt-3 text-sm">Запрашиваем GPS телефона...</p>
+          <p className="text-muted-foreground mt-3 text-sm">{t('mobileRoute.status.phoneGps')}</p>
         )}
 
-        {route && sharedRoute.segmentModes.every((mode) => mode === 'walking') && (
+        {sharedRoute.places.length > 0 && (
           <Button
             type="button"
             className="mt-4 w-full rounded-lg"
@@ -234,7 +238,7 @@ export const MobileRoutePage = () => {
               )}`;
             }}
           >
-            Начать прогулку
+            {t('mobileRoute.actions.start')}
           </Button>
         )}
 
@@ -248,7 +252,10 @@ export const MobileRoutePage = () => {
                 <div className="min-w-0">
                   <p className="line-clamp-2 font-medium">{place.name}</p>
                   <p className="text-muted-foreground text-xs">
-                    {getCategoryTitle(place.category)} · {place.visitDurationMinutes} мин
+                    {t('mobileRoute.sheet.visit', {
+                      category: t(getCategoryTitleKey(place.category)),
+                      minutes: place.visitDurationMinutes,
+                    })}
                   </p>
                 </div>
               </div>

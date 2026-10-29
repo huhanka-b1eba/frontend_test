@@ -7,6 +7,12 @@ const OSRM_BASE_URLS: Record<RoutableTransportMode, string> = {
   driving: 'https://routing.openstreetmap.de/routed-car',
 };
 
+const OSRM_PROFILES: Record<RoutableTransportMode, string> = {
+  walking: 'foot',
+  cycling: 'bike',
+  driving: 'car',
+};
+
 const formatPoint = ({ latitude, longitude }: RoutePoint) => {
   return `${longitude},${latitude}`;
 };
@@ -26,7 +32,7 @@ export const getRoute = async (
     alternatives: 'false',
   });
   const coordinates = points.map(formatPoint).join(';');
-  const routeUrl = `${OSRM_BASE_URLS[mode]}/route/v1/driving`;
+  const routeUrl = `${OSRM_BASE_URLS[mode]}/route/v1/${OSRM_PROFILES[mode]}`;
 
   const response = await fetch(`${routeUrl}/${coordinates}?${params.toString()}`);
 

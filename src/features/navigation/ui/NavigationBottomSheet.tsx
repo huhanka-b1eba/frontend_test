@@ -1,6 +1,7 @@
 import type { RouteLeg } from '@shared/api/osrm';
 import { Button } from '@shared/ui/button';
-import { List, LocateFixed, Pause, Play } from 'lucide-react';
+import { List, LocateFixed, Pause, Play, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { formatNavigationDistance, type NavigationPlace, type NavigationStatus } from '../model';
 
@@ -14,6 +15,7 @@ type NavigationBottomSheetProps = {
   onPause: () => void;
   onResume: () => void;
   onRecenter: () => void;
+  onRebuild?: () => void;
 };
 
 export const NavigationBottomSheet = ({
@@ -26,7 +28,9 @@ export const NavigationBottomSheet = ({
   onPause,
   onResume,
   onRecenter,
+  onRebuild,
 }: NavigationBottomSheetProps) => {
+  const { t } = useTranslation();
   const progressLabel =
     totalPlaces > 0 ? `${Math.min(currentPlaceIndex + 1, totalPlaces)} / ${totalPlaces}` : null;
   const legLabel = leg
@@ -60,19 +64,29 @@ export const NavigationBottomSheet = ({
         )}
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="bg-background/70 h-10 flex-1 rounded-lg"
+          className="bg-background/70 h-10 rounded-lg"
           onClick={onOpenList}
         >
           <List className="size-4" />
           Список
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="bg-background/70 h-10 rounded-lg"
+          onClick={onRebuild}
+        >
+          <RefreshCw className="size-4" />
+          {t('navigation.rebuild.button')}
+        </Button>
         {status === 'paused' ? (
-          <Button type="button" size="sm" className="h-10 flex-1 rounded-lg" onClick={onResume}>
+          <Button type="button" size="sm" className="h-10 rounded-lg" onClick={onResume}>
             <Play className="size-4" />
             Продолжить
           </Button>
@@ -81,7 +95,7 @@ export const NavigationBottomSheet = ({
             type="button"
             variant="secondary"
             size="sm"
-            className="h-10 flex-1 rounded-lg"
+            className="h-10 rounded-lg"
             onClick={onPause}
           >
             <Pause className="size-4" />

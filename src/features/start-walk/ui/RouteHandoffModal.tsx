@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
+import { Check, Copy, MapPinned, Smartphone, TriangleAlert } from 'lucide-react';
 
 import type { SharedRoute } from '@shared/lib/route-share';
 import { createRouteShareUrl } from '@shared/lib/route-share';
@@ -36,6 +38,7 @@ type RouteHandoffContentProps = {
 };
 
 const RouteHandoffContent = ({ route, userLocation, initialMode }: RouteHandoffContentProps) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<NavigationMode>(initialMode);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
 
@@ -86,74 +89,123 @@ const RouteHandoffContent = ({ route, userLocation, initialMode }: RouteHandoffC
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      setCopyStatus('Ссылка скопирована');
+      setCopyStatus(t('routeHandoff.actions.copied'));
     } catch {
-      setCopyStatus('Не удалось скопировать ссылку');
+      setCopyStatus(t('routeHandoff.actions.copyError'));
     }
   };
 
   return (
-    <DialogContent className="sm:max-w-md">
-      <DialogHeader>
-        <DialogTitle>Возьми маршрут с собой</DialogTitle>
+    <DialogContent className="max-h-[calc(100dvh-1rem)] gap-0 overflow-y-auto rounded-[1.75rem] border-[#e6ddcf] bg-[#FFFEFB] p-0 text-[#172420] shadow-[0_24px_80px_rgba(23,36,32,0.18)] sm:max-w-[440px]">
+      <div className="px-5 pt-5 pb-3 sm:px-6 sm:pt-5">
+        <DialogHeader className="gap-1.5 pr-8 text-left">
+          <DialogTitle className="font-serif text-[1.95rem] leading-[0.96] font-normal tracking-[-0.045em] text-[#172420] sm:text-[2.22rem]">
+            {t('routeHandoff.title')}
+          </DialogTitle>
 
-        <DialogDescription>Маршрут готов. Открой его на телефоне.</DialogDescription>
-      </DialogHeader>
+          <DialogDescription className="max-w-[360px] text-[0.88rem] leading-5 font-medium text-[#66746c]">
+            {t('routeHandoff.description')}
+          </DialogDescription>
+        </DialogHeader>
+      </div>
 
-      <Tabs value={mode} onValueChange={handleModeChange}>
-        <TabsList className="w-full">
-          <TabsTrigger value="our">Наш навигатор</TabsTrigger>
+      <div className="px-5 pb-4 sm:px-6 sm:pb-5">
+        <Tabs value={mode} onValueChange={handleModeChange} className="gap-3">
+          <TabsList className="grid min-h-12 w-full grid-cols-2 rounded-full border border-[#d8d0c0] bg-[#f7f2e9] p-1.5 text-[#66746c]">
+            <TabsTrigger
+              value="our"
+              className="h-9 rounded-full text-[0.78rem] font-semibold data-[state=active]:bg-[#154b39] data-[state=active]:text-[#fffaf0] sm:text-[0.82rem]"
+            >
+              <Smartphone className="size-4" aria-hidden="true" />
+              {t('routeHandoff.modes.our')}
+            </TabsTrigger>
 
-          <TabsTrigger value="yandex">Яндекс Карты</TabsTrigger>
-        </TabsList>
+            <TabsTrigger
+              value="yandex"
+              className="h-9 rounded-full text-[0.78rem] font-semibold data-[state=active]:bg-[#154b39] data-[state=active]:text-[#fffaf0] sm:text-[0.82rem]"
+            >
+              <MapPinned className="size-4" aria-hidden="true" />
+              {t('routeHandoff.modes.yandex')}
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="our" className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            Навигация по маршруту, информация о местах и будущий AI-гид.
-          </p>
-        </TabsContent>
-
-        <TabsContent value="yandex" className="space-y-3">
-          <p className="text-muted-foreground text-sm">
-            Открой маршрут в привычных Яндекс Картах. AI-гид и функции нашего навигатора будут
-            недоступны.
-          </p>
-
-          {!userLocation && (
-            <p className="text-destructive border-destructive bg-background/70 border-l-2 py-2 pl-3 text-sm font-medium">
-              Не удалось определить ваше местоположение. Разрешите доступ к геопозиции.
+          <TabsContent value="our">
+            <p className="px-1 text-[0.84rem] leading-5 font-medium text-[#315746]">
+              {t('routeHandoff.descriptions.our')}
             </p>
-          )}
+          </TabsContent>
 
-          {userLocation && !canUseYandex && (
-            <p className="text-destructive border-destructive bg-background/70 border-l-2 py-2 pl-3 text-sm font-medium">
-              Этот маршрут слишком большой для передачи в Яндекс Карты. Максимум:{' '}
-              {YANDEX_MAPS_MAX_ROUTE_POINTS} точек. В вашем маршруте: {yandexRoutePoints.length}.
-              Используйте наш навигатор или сократите количество точек.
+          <TabsContent value="yandex" className="space-y-2.5">
+            <p className="px-1 text-[0.84rem] leading-5 font-medium text-[#66746c]">
+              {t('routeHandoff.descriptions.yandex')}
             </p>
+
+            {!userLocation && (
+              <p className="flex items-start gap-2 rounded-[1rem] border border-[#e8c4c4] bg-[#fff7f7] px-3 py-2.5 text-[0.8rem] leading-5 font-semibold text-[#8a3d3d]">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                {t('routeHandoff.warnings.noLocation')}
+              </p>
+            )}
+
+            {userLocation && !canUseYandex && (
+              <p className="flex items-start gap-2 rounded-[1rem] border border-[#e8c4c4] bg-[#fff7f7] px-3 py-2.5 text-[0.8rem] leading-5 font-semibold text-[#8a3d3d]">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                {t('routeHandoff.warnings.tooManyPoints', {
+                  max: YANDEX_MAPS_MAX_ROUTE_POINTS,
+                  count: yandexRoutePoints.length,
+                })}
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <div className="mt-3">
+          {canShareCurrentMode ? (
+            <div className="grid place-items-center gap-2.5">
+              <div className="p-1">
+                <QRCodeSVG
+                  value={shareUrl}
+                  size={218}
+                  bgColor="#ffffff"
+                  fgColor="#154b39"
+                  className="size-[194px] sm:size-[218px]"
+                />
+              </div>
+
+              <div className="text-center">
+                <p className="text-[0.86rem] font-semibold text-[#172420]">
+                  {t('routeHandoff.qr.label')}
+                </p>
+                <p className="mt-0.5 text-xs leading-4 text-[#66746c]">
+                  {t('routeHandoff.qr.hint')}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid min-h-[156px] place-items-center rounded-[1.05rem] border border-dashed border-[#d8d0c0] px-4 text-center text-sm font-medium text-[#66746c]">
+              {t('routeHandoff.warnings.noLocation')}
+            </div>
           )}
-        </TabsContent>
-      </Tabs>
-
-      {canShareCurrentMode && (
-        <div className="bg-background/55 flex flex-col items-center gap-3 border-y py-4">
-          <QRCodeSVG value={shareUrl} size={220} />
-
-          <p className="text-muted-foreground text-center text-sm">Отсканируй QR-код телефоном</p>
         </div>
-      )}
 
-      <Button
-        type="button"
-        variant="outline"
-        className="rounded-lg"
-        disabled={!canShareCurrentMode}
-        onClick={() => void handleCopy()}
-      >
-        Скопировать ссылку
-      </Button>
+        <Button
+          type="button"
+          className="mt-3 min-h-10 w-full rounded-full border-0 bg-[#154b39] px-5 text-sm font-semibold text-[#fffaf0] shadow-none hover:bg-[#103c2e] active:translate-y-px disabled:opacity-45"
+          disabled={!canShareCurrentMode}
+          onClick={() => void handleCopy()}
+        >
+          {copyStatus === t('routeHandoff.actions.copied') ? (
+            <Check className="size-4" aria-hidden="true" />
+          ) : (
+            <Copy className="size-4" aria-hidden="true" />
+          )}
+          {t('routeHandoff.actions.copy')}
+        </Button>
 
-      {copyStatus && <p className="text-muted-foreground text-center text-sm">{copyStatus}</p>}
+        {copyStatus && (
+          <p className="mt-2 text-center text-sm font-medium text-[#66746c]">{copyStatus}</p>
+        )}
+      </div>
     </DialogContent>
   );
 };

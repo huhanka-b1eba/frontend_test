@@ -54,6 +54,7 @@ export const useNavigation = (places: NavigationPlace[], enabled: boolean) => {
     debug: initialDebug,
   });
   const stateRef = useRef(state);
+  const targetId = places[0]?.id ?? null;
   const watchIdRef = useRef<number | null>(null);
   const arrivalUpdatesRef = useRef(0);
   const offRouteUpdatesRef = useRef(0);
@@ -75,7 +76,7 @@ export const useNavigation = (places: NavigationPlace[], enabled: boolean) => {
 
   const buildRoute = useCallback(
     async (location: NavigationUserLocation, placeIndex: number) => {
-      const nextPlaces = places.slice(placeIndex);
+      const nextPlaces = places.slice(placeIndex, placeIndex + 1);
 
       if (nextPlaces.length === 0) {
         setState((previousState) => ({
@@ -134,6 +135,36 @@ export const useNavigation = (places: NavigationPlace[], enabled: boolean) => {
     },
     [places],
   );
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      arrivalUpdatesRef.current = 0;
+      offRouteUpdatesRef.current = 0;
+      setState((previousState) => ({
+        ...previousState,
+        status: 'waiting-location',
+        currentPlaceIndex: 0,
+        currentStepIndex: 0,
+        route: null,
+        error: null,
+        message: null,
+      }));
+
+      const location = stateRef.current.userLocation;
+
+      if (location) {
+        void buildRoute(location, 0);
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [buildRoute, enabled, targetId]);
 
   const processLocationUpdate = useCallback(
     (location: NavigationUserLocation) => {
